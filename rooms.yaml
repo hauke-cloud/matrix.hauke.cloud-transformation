@@ -2,5 +2,5 @@ rooms:
   - alias: "#alerting-prod:hauke.cloud"
     event_type: "uk.half-shot.matrix-hookshot.generic.hook"
     connections:
-      - state_key: "bot_randy"
+      - state_key: "randy"
         script: "scripts/alertmanager.js"
