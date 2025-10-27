@@ -62,7 +62,6 @@
     linesPlain.push(
       `${sevEmoji(sev)} ${subject}${target ? ` on ${target}` : ""}` +
       (A.summary ? ` — ${A.summary}` : A.description ? ` — ${A.description}` : "") +
-      (when ? ` (${when})` : "") +
       (src ? ` [source](${src})` : "")
     );
 
