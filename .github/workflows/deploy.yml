@@ -5,7 +5,7 @@ on:
     paths:
       - "rooms.yaml"
       - "scripts/**"
-      - ".github/workflows/provision-hookshot-transforms.yml"
+      - ".github/workflows/deploy.yml"
   workflow_dispatch: {}
 
 permissions:
