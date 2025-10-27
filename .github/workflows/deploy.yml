@@ -45,9 +45,9 @@ jobs:
 
           urlenc() {
             python3 - <<'PY' "$1"
-import sys, urllib.parse
-print(urllib.parse.quote(sys.argv[1], safe=''))
-PY
+            import sys, urllib.parse
+            print(urllib.parse.quote(sys.argv[1], safe=''))
+            PY
           }
 
           resolve_room_id() {
@@ -141,4 +141,3 @@ PY
           done
 
           exit "$err"
-
