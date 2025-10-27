@@ -3,4 +3,4 @@ rooms:
     event_type: "uk.half-shot.matrix-hookshot.generic.hook"
     connections:
       - state_key: "randy"
-        script: "scripts/test.js"
+        script: "scripts/alertmanager.js"
