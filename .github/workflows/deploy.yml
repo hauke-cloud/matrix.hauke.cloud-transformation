@@ -115,7 +115,7 @@ jobs:
               fi
 
               echo "  - Updating state: type='${event_type}' key='${state_key}' from '${script_path}'"
-              export script_path="${script_path}"
+              export script_path="$(cat ${script_path})"
               export name="${state_key}"
               body=$(echo -n '{}' | jq -Rs '{"name": $ENV.name, "transformationFunction": $ENV.script_path}')
 
