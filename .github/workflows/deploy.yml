@@ -44,12 +44,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          urlenc() {
-            python3 - <<'PY' "$1"
-            import sys, urllib.parse
-            print(urllib.parse.quote(sys.argv[1], safe=''))
-            PY
-          }
+          urlenc() { jq -rn --arg s "$1" '$s|@uri'; }
 
           resolve_room_id() {
             local ident="$1"
