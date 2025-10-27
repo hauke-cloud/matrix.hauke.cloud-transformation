@@ -115,7 +115,9 @@ jobs:
               fi
 
               echo "  - Updating state: type='${event_type}' key='${state_key}' from '${script_path}'"
-              body=$(jq -Rs '{transformationFunction: .}' < "$script_path")
+              export script_path="${script_path}"
+              export name="${state_key}"
+              body=$(echo -n '{}' | jq -Rs '{"name": $ENV.name, "transformationFunction": $ENV.script_path}')
 
               put_url="${MATRIX_HOMESERVER}/_matrix/client/v3/rooms/$(urlenc "${room_id}")/state/${event_type}/$(urlenc "${state_key}")?user_id=$(urlenc "${MATRIX_AS_USER_ID}")"
 
