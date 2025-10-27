@@ -1,0 +1,144 @@
+name: Provision Hookshot Transformations (AS)
+
+on:
+  push:
+    paths:
+      - "rooms.yaml"
+      - "scripts/**"
+      - ".github/workflows/provision-hookshot-transforms.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    env:
+      MATRIX_HOMESERVER: ${{ secrets.MATRIX_HOMESERVER }}
+      MATRIX_AS_TOKEN: ${{ secrets.MATRIX_AS_TOKEN }}
+      MATRIX_AS_USER_ID: ${{ secrets.MATRIX_AS_USER_ID }}
+      DEFAULT_EVENT_TYPE: ${{ vars.DEFAULT_EVENT_TYPE || 'uk.half-shot.matrix-hookshot.generic.hook' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install jq & yq
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y jq
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Validate inputs
+        run: |
+          set -euo pipefail
+          test -n "${MATRIX_HOMESERVER:-}" || { echo "MATRIX_HOMESERVER is required"; exit 1; }
+          test -n "${MATRIX_AS_TOKEN:-}" || { echo "MATRIX_AS_TOKEN is required"; exit 1; }
+          test -n "${MATRIX_AS_USER_ID:-}" || { echo "MATRIX_AS_USER_ID is required"; exit 1; }
+          test -f rooms.yaml || { echo "rooms.yaml not found"; exit 1; }
+
+      - name: Provision transformations (AS)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          urlenc() {
+            python3 - <<'PY' "$1"
+import sys, urllib.parse
+print(urllib.parse.quote(sys.argv[1], safe=''))
+PY
+          }
+
+          resolve_room_id() {
+            local ident="$1"
+            if [[ "$ident" == \#*:* ]]; then
+              local enc; enc="$(urlenc "$ident")"
+              curl -fsS -H "Authorization: Bearer ${MATRIX_AS_TOKEN}" \
+                "${MATRIX_HOMESERVER}/_matrix/client/v3/directory/room/${enc}?user_id=$(urlenc "${MATRIX_AS_USER_ID}")" \
+                | jq -r '.room_id'
+            else
+              echo "$ident"
+            fi
+          }
+
+          join_room_if_possible() {
+            local room="$1"
+            # Best-effort join (works for public rooms or if invited already)
+            curl -sS -o /tmp/join.json -w "%{http_code}" \
+              -X POST \
+              -H "Authorization: Bearer ${MATRIX_AS_TOKEN}" \
+              -H "Content-Type: application/json" \
+              --data '{}' \
+              "${MATRIX_HOMESERVER}/_matrix/client/v3/rooms/$(urlenc "${room}")/join?user_id=$(urlenc "${MATRIX_AS_USER_ID}")" \
+              || true
+          }
+
+          rooms_len=$(yq '.rooms | length' rooms.yaml)
+          [[ "$rooms_len" =~ ^[0-9]+$ ]] || rooms_len=0
+
+          err=0
+          for idx in $(seq 0 $((rooms_len-1))); do
+            ident=$(yq -r ".rooms[$idx].room_id // .rooms[$idx].alias" rooms.yaml)
+            event_type=$(yq -r ".rooms[$idx].event_type // env(DEFAULT_EVENT_TYPE)" rooms.yaml)
+            conns_len=$(yq -r ".rooms[$idx].connections | length" rooms.yaml)
+
+            if [[ -z "$ident" || "$ident" == "null" ]]; then
+              echo "::error::Room at index $idx has neither room_id nor alias"
+              err=1; continue
+            fi
+
+            room_id=$(resolve_room_id "$ident") || { echo "::error::Resolve failed: $ident"; err=1; continue; }
+            if [[ -z "$room_id" || "$room_id" == "null" ]]; then
+              echo "::error::Could not resolve room: $ident"
+              err=1; continue
+            fi
+
+            echo "Room: $ident → $room_id (event_type: $event_type)"
+
+            # Best-effort join
+            code=$(join_room_if_possible "$room_id")
+            echo "  join attempt HTTP: ${code:-n/a} (ok if not public/already joined)"
+
+            if [[ "$conns_len" == "0" || "$conns_len" == "null" ]]; then
+              echo "::warning::No connections listed for $ident"
+              continue
+            fi
+
+            for cidx in $(seq 0 $((conns_len-1))); do
+              state_key=$(yq -r ".rooms[$idx].connections[$cidx].state_key" rooms.yaml)
+              script_path=$(yq -r ".rooms[$idx].connections[$cidx].script" rooms.yaml)
+
+              if [[ -z "$state_key" || "$state_key" == "null" ]]; then
+                echo "::error::Missing state_key for $ident connection index $cidx"
+                err=1; continue
+              fi
+              if [[ -z "$script_path" || "$script_path" == "null" || ! -f "$script_path" ]]; then
+                echo "::error::Script not found for $ident / $state_key: $script_path"
+                err=1; continue
+              fi
+
+              echo "  - Updating state: type='${event_type}' key='${state_key}' from '${script_path}'"
+              body=$(jq -Rs '{transformationFunction: .}' < "$script_path")
+
+              put_url="${MATRIX_HOMESERVER}/_matrix/client/v3/rooms/$(urlenc "${room_id}")/state/${event_type}/$(urlenc "${state_key}")?user_id=$(urlenc "${MATRIX_AS_USER_ID}")"
+
+              http_code=$(curl -sS -o /tmp/resp.json -w "%{http_code}" \
+                -X PUT \
+                -H "Authorization: Bearer ${MATRIX_AS_TOKEN}" \
+                -H "Content-Type: application/json" \
+                --data "${body}" \
+                "${put_url}" || true)
+
+              if [[ "$http_code" != 200 && "$http_code" != 201 ]]; then
+                echo "::error::Failed to PUT state for ${ident} (${room_id}) / ${state_key} (HTTP ${http_code})"
+                echo "Response:"; cat /tmp/resp.json || true
+                err=1
+              else
+                echo "    ✓ Updated (HTTP ${http_code})"
+              fi
+            done
+          done
+
+          exit "$err"
+
