@@ -80,11 +80,11 @@
     if (src) htmlBits.push(` <a href="${esc(src)}">source</a>`);
 
     // Select a few interesting labels to show inline; rest as tooltip
-    const interesting = ["severity","instance","pod","job","namespace","service"];
-    const shown = interesting.filter(k => L[k]).map(k => `<code>${esc(k)}=${esc(L[k])}</code>`);
-    if (shown.length) {
-      htmlBits.push(` · ${shown.join(" ")}`);
-    }
+    // const interesting = ["severity","instance","pod","job","namespace","service"];
+    // const shown = interesting.filter(k => L[k]).map(k => `<code>${esc(k)}=${esc(L[k])}</code>`);
+    // if (shown.length) {
+    //   htmlBits.push(` · ${shown.join(" ")}`);
+    // }
 
     linesHtml.push(htmlBits.join(""));
   }
