@@ -32,7 +32,9 @@
   ].filter(Boolean).join(" | ");
 
   const hdrHtml = [
-    `<b>${esc(status)}</b> · ${esc(countText)}`,
+    status == "FIRING" ? `<b><span style="color: red">${esc(status)}</span></b>` : "",
+    status == "RESOLVED" ? `<b><span style="color: green">${esc(status)}</span></b>` : "",
+    `${esc(countText)}`,
     headerBits.length ? ` · ${headerBits.join(" ")}` : "",
     commonAnno.summary ? ` · ${esc(commonAnno.summary)}` : "",
     extURL ? ` · <a href="${esc(extURL)}">Alertmanager</a>` : "",
