@@ -50,9 +50,6 @@
     if (String(sev).toLowerCase() === "critical" || String(sev).toLowerCase() === "crit") {
       anyCritical = true;
     }
-    const when =
-      (a.startsAt ? `starts: ${a.startsAt}` : "") +
-      (a.endsAt ? ` ends: ${a.endsAt}` : "");
     const src = a.generatorURL || "";
 
     const subject =
@@ -71,12 +68,13 @@
 
     // Compose HTML
     const htmlBits = [];
-    htmlBits.push(`${sevEmoji(sev)} <code>${esc(subject)}</code>`);
-    if (target) htmlBits.push(`on <code>${esc(target)}</code>`);
+    htmlBits.push(`${sevEmoji(sev)} <code>${esc(subject)}</code><br>`);
+    // if (target) htmlBits.push(`on <code>${esc(target)}</code>`);
     if (A.summary || A.description) {
-      htmlBits.push(`— ${esc(A.summary || A.description)}`);
+      htmlBits.push(`${esc(A.summary || A.description)}<br>`);
     }
-    if (when) htmlBits.push(` <span style="opacity:.8">(${esc(when)})</span>`);
+    if (a.startsAt) htmlBits.push(`<span style="opacity:.8">starts: ${esc(a.startsAt)}</span><br>`);
+    if (a.endsAt) htmlBits.push(`<span style="opacity:.8">ends: ${esc(a.endsAt)}</span><br>`);
     if (src) htmlBits.push(` <a href="${esc(src)}">source</a>`);
 
     // Select a few interesting labels to show inline; rest as tooltip
