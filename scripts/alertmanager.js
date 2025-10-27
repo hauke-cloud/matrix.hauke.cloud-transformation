@@ -32,8 +32,7 @@
   ].filter(Boolean).join(" | ");
 
   const hdrHtml = [
-    `<b>Alertmanager ${esc(status)}</b> · ${esc(countText)}`,
-    receiver ? ` · <code>${esc(receiver)}</code>` : "",
+    `<b>${esc(status)}</b> · ${esc(countText)}`,
     headerBits.length ? ` · ${headerBits.join(" ")}` : "",
     commonAnno.summary ? ` · ${esc(commonAnno.summary)}` : "",
     extURL ? ` · <a href="${esc(extURL)}">Alertmanager</a>` : "",
